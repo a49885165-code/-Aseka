@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+<title>Echo</title>
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; height: 100%; background: #0B0E14; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #E8E6E1;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+  }
+
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid #1E2330;
+    padding-top: max(14px, env(safe-area-inset-top));
+    flex-shrink: 0;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .avatar {
+    width: 30px; height: 30px; border-radius: 50%; background: #5B8DEF;
+    display: flex; align-items: center; justify-content: center; font-size: 15px;
+  }
+  .brand h1 { font-size: 15px; margin: 0; font-weight: 600; }
+  .brand p { font-size: 11px; margin: 0; color: #6B7280; }
+  header button {
+    background: none; border: none; color: #6B7280; font-size: 12px;
+    display: flex; align-items: center; gap: 5px; padding: 6px;
+  }
+  header button:active { color: #E8E6E1; }
+
+  #settingsPanel {
+    display: none; padding: 14px 18px; border-bottom: 1px solid #1E2330;
+    background: #10141C; flex-shrink: 0;
+  }
+  #settingsPanel.open { display: block; }
+  #settingsPanel label { font-size: 12px; color: #6B7280; display: block; margin-bottom: 6px; }
+  #settingsPanel input {
+    width: 100%; background: #151A24; border: 1px solid #232838; border-radius: 10px;
+    padding: 10px 12px; color: #E8E6E1; font-size: 13px; outline: none;
+  }
+  #settingsPanel .hint { font-size: 11px; color: #4B5160; margin-top: 6px; line-height: 1.4; }
+
+  #messages {
+    flex: 1; overflow-y: auto; padding: 18px 14px; display: flex; flex-direction: column; gap: 14px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 0 24px; }
+  .empty .icon { width: 56px; height: 56px; border-radius: 18px; background: #151A24; border: 1px solid #1E2330; display: flex; align-items: center; justify-content: center; font-size: 24px; margin-bottom: 14px; }
+  .empty h2 { font-size: 18px; margin: 0 0 6px; }
+  .empty p { font-size: 13px; color: #6B7280; max-width: 260px; margin: 0; }
+
+  .row { display: flex; }
+  .row.user { justify-content: flex-end; }
+  .row.assistant { justify-content: flex-start; }
+  .bubble {
+    max-width: 82%; border-radius: 16px; padding: 10px 14px; font-size: 14px; line-height: 1.5;
+    white-space: pre-wrap; word-wrap: break-word;
+  }
+  .row.user .bubble { background: #5B8DEF; color: #0B0E14; border-bottom-right-radius: 4px; }
+  .row.assistant .bubble { background: #151A24; border: 1px solid #1E2330; border-bottom-left-radius: 4px; }
+
+  .code-block { margin: 8px 0; border-radius: 12px; overflow: hidden; border: 1px solid #232838; background: #0E1219; }
+  .code-header { display: flex; justify-content: space-between; align-items: center; padding: 6px 12px; background: #161B26; border-bottom: 1px solid #232838; }
+  .code-header span.lang { font-size: 11px; color: #6B7280; font-family: monospace; }
+  .code-header .actions { display: flex; gap: 12px; }
+  .code-header button { background: none; border: none; color: #6B7280; font-size: 11px; padding: 2px; }
+  .code-header button:active { color: #E8E6E1; }
+  pre { margin: 0; padding: 10px 12px; overflow-x: auto; font-size: 13px; }
+  pre code { font-family: "SF Mono", Menlo, monospace; color: #D6E8FF; }
+  .bubble code.inline { background: rgba(0,0,0,0.25); padding: 1px 5px; border-radius: 4px; font-size: 13px; }
+
+  .dots { background: #151A24; border: 1px solid #1E2330; border-radius: 16px; border-bottom-left-radius: 4px; padding: 12px 16px; display: inline-flex; gap: 5px; }
+  .dots span { width: 6px; height: 6px; border-radius: 50%; background: #6B7280; animation: bounce 1.2s infinite ease-in-out; }
+  .dots span:nth-child(2) { animation-delay: 0.15s; }
+  .dots span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes bounce { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
+
+  .error-box { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #E88A8A; background: #1E1416; border: 1px solid #3A2226; border-radius: 12px; padding: 10px 12px; }
+
+  #inputBar {
+    flex-shrink: 0; padding: 10px 12px; padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+  #inputWrap {
+    display: flex; align-items: flex-end; gap: 8px; background: #151A24;
+    border: 1px solid #1E2330; border-radius: 20px; padding: 8px 8px 8px 14px;
+  }
+  #inputWrap.focused { border-color: #5B8DEF; }
+  textarea#msgInput {
+    flex: 1; background: transparent; border: none; outline: none; resize: none;
+    color: #E8E6E1; font-size: 14px; max-height: 120px; padding: 6px 0; font-family: inherit;
+  }
+  textarea#msgInput::placeholder { color: #4B5160; }
+  #sendBtn {
+    width: 34px; height: 34px; flex-shrink: 0; border-radius: 50%; border: none;
+    background: #5B8DEF; color: #0B0E14; font-size: 15px; display: flex; align-items: center; justify-content: center;
+  }
+  #sendBtn:disabled { background: #2A2F3B; color: #4B5160; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="avatar">✨</div>
+    <div>
+      <h1>Echo</h1>
+      <p>на базе Claude</p>
+    </div>
+  </div>
+  <div style="display:flex; gap:14px;">
+    <button id="settingsBtn">⚙️ Настройки</button>
+    <button id="clearBtn">🗑 Очистить</button>
+  </div>
+</header>
+
+<div id="settingsPanel">
+  <label for="apiKeyInput">Anthropic API-ключ</label>
+  <input id="apiKeyInput" type="password" placeholder="sk-ant-..." autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" />
+  <div class="hint">Ключ хранится только на этом телефоне (localStorage). Получить его можно на console.anthropic.com → API Keys. Никому не передавайте APK с уже вписанным ключом.</div>
+</div>
+
+<div id="messages">
+  <div class="empty" id="emptyState">
+    <div class="icon">✨</div>
+    <h2>С чего начнём?</h2>
+    <p>Задайте вопрос, попросите помочь с текстом или кодом.</p>
+  </div>
+</div>
+
+<div id="inputBar">
+  <div id="inputWrap">
+    <textarea id="msgInput" rows="1" placeholder="Написать сообщение..."></textarea>
+    <button id="sendBtn">➤</button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "echo_history_v1";
+const API_KEY_STORAGE = "echo_api_key_v1";
+const SYSTEM_PROMPT = `Ты — Echo, вдумчивый и полезный ассистент.
+
+Как отвечать:
+- Сначала пойми, что человеку реально нужно, если вопрос неоднозначный — уточни или сделай разумное предположение и скажи об этом.
+- Для сложных вопросов рассуждай по шагам, прежде чем дать финальный ответ.
+- Будь честным: если не уверен — так и скажи, не выдумывай факты.
+- Для кода — пиши рабочие, аккуратные примеры в блоках \`\`\`язык, объясняй ключевые решения кратко.
+- Отвечай по существу, без воды, но не в ущерб глубине там, где она нужна.`;
+
+const EXT_MAP = {
+  javascript:"js", js:"js", jsx:"jsx", typescript:"ts", ts:"ts", tsx:"tsx",
+  python:"py", py:"py", java:"java", c:"c", cpp:"cpp", "c++":"cpp",
+  csharp:"cs", "c#":"cs", go:"go", golang:"go", rust:"rs", ruby:"rb",
+  php:"php", html:"html", css:"css", json:"json", yaml:"yml", yml:"yml",
+  sql:"sql", bash:"sh", sh:"sh", shell:"sh", swift:"swift", kotlin:"kt",
+  markdown:"md", md:"md", xml:"xml", plaintext:"txt", text:"txt", "":"txt"
+};
+
+let messages = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+
+const messagesEl = document.getElementById("messages");
+const emptyState = document.getElementById("emptyState");
+const input = document.getElementById("msgInput");
+const sendBtn = document.getElementById("sendBtn");
+const inputWrap = document.getElementById("inputWrap");
+const settingsBtn = document.getElementById("settingsBtn");
+const settingsPanel = document.getElementById("settingsPanel");
+const apiKeyInput = document.getElementById("apiKeyInput");
+const clearBtn = document.getElementById("clearBtn");
+
+apiKeyInput.value = localStorage.getItem(API_KEY_STORAGE) || "";
+apiKeyInput.addEventListener("input", () => {
+  localStorage.setItem(API_KEY_STORAGE, apiKeyInput.value.trim());
+});
+settingsBtn.addEventListener("click", () => settingsPanel.classList.toggle("open"));
+
+clearBtn.addEventListener("click", () => {
+  messages = [];
+  localStorage.removeItem(STORAGE_KEY);
+  render();
+});
+
+input.addEventListener("input", () => {
+  input.style.height = "auto";
+  input.style.height = input.scrollHeight + "px";
+  sendBtn.disabled = !input.value.trim();
+});
+input.addEventListener("focus", () => inputWrap.classList.add("focused"));
+input.addEventListener("blur", () => inputWrap.classList.remove("focused"));
+input.addEventListener("keydown", (e) => {
+  if (e.key === "Enter" && !e.shiftKey) {
+    e.preventDefault();
+    send();
+  }
+});
+sendBtn.addEventListener("click", send);
+sendBtn.disabled = true;
+
+function escapeHtml(s) {
+  return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function renderInline(text) {
+  let out = escapeHtml(text);
+  out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+  out = out.replace(/`([^`]+)`/g, '<code class="inline">$1</code>');
+  return out;
+}
+
+function parseContent(content) {
+  const parts = [];
+  const regex = /```(\w*)\n?([\s\S]*?)```/g;
+  let lastIndex = 0, match;
+  while ((match = regex.exec(content)) !== null) {
+    if (match.index > lastIndex) parts.push({ type: "text", value: content.slice(lastIndex, match.index) });
+    parts.push({ type: "code", lang: match[1].toLowerCase(), value: match[2].replace(/\n$/, "") });
+    lastIndex = regex.lastIndex;
+  }
+  if (lastIndex < content.length) parts.push({ type: "text", value: content.slice(lastIndex) });
+  return parts;
+}
+
+function downloadCode(lang, value, btn) {
+  const ext = EXT_MAP[lang] || "txt";
+  const blob = new Blob([value], { type: "text/plain" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `snippet.${ext}`;
+  document.body.appendChild(a); a.click(); a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function copyText(value, btn) {
+  navigator.clipboard?.writeText(value).then(() => {
+    const orig = btn.textContent;
+    btn.textContent = "✓ Скопировано";
+    setTimeout(() => (btn.textContent = orig), 1400);
+  });
+}
+
+function buildBubbleHtml(content, role) {
+  if (role === "user") return escapeHtml(content);
+  const parts = parseContent(content);
+  return parts.map((p) => {
+    if (p.type === "code") {
+      const id = "code_" + Math.random().toString(36).slice(2);
+      window[id] = p.value;
+      return `<div class="code-block">
+        <div class="code-header">
+          <span class="lang">${escapeHtml(p.lang || "text")}</span>
+          <div class="actions">
+            <button onclick="copyText(window['${id}'], this)">Копировать</button>
+            <button onclick="downloadCode('${p.lang}', window['${id}'], this)">Скачать</button>
+          </div>
+        </div>
+        <pre><code>${escapeHtml(p.value)}</code></pre>
+      </div>`;
+    }
+    return `<span>${renderInline(p.value)}</span>`;
+  }).join("");
+}
+
+function render() {
+  emptyState.style.display = messages.length ? "none" : "flex";
+  messagesEl.querySelectorAll(".row, .error-box").forEach((el) => el.remove());
+  for (const m of messages) {
+    const row = document.createElement("div");
+    row.className = "row " + m.role;
+    row.innerHTML = `<div class="bubble">${buildBubbleHtml(m.content, m.role)}</div>`;
+    messagesEl.appendChild(row);
+  }
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+function persist() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+}
+
+function showDots() {
+  const row = document.createElement("div");
+  row.className = "row assistant";
+  row.id = "dotsRow";
+  row.innerHTML = `<div class="dots"><span></span><span></span><span></span></div>`;
+  messagesEl.appendChild(row);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+function hideDots() {
+  document.getElementById("dotsRow")?.remove();
+}
+function showError(text) {
+  const box = document.createElement("div");
+  box.className = "error-box";
+  box.textContent = "⚠ " + text;
+  messagesEl.appendChild(box);
+  messagesEl.scrollTop = messagesEl.scrollHeight;
+}
+
+async function send() {
+  const text = input.value.trim();
+  if (!text) return;
+  const apiKey = localStorage.getItem(API_KEY_STORAGE);
+  if (!apiKey) {
+    settingsPanel.classList.add("open");
+    showError("Сначала впишите API-ключ в настройках.");
+    return;
+  }
+
+  messages.push({ role: "user", content: text });
+  input.value = ""; input.style.height = "auto"; sendBtn.disabled = true;
+  render(); persist();
+
+  showDots();
+  sendBtn.disabled = true;
+
+  try {
+    const response = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+        "anthropic-dangerous-direct-browser-access": "true"
+      },
+      body: JSON.stringify({
+        model: "claude-sonnet-4-6",
+        max_tokens: 4096,
+        system: SYSTEM_PROMPT,
+        stream: true,
+        messages: messages.map(m => ({ role: m.role, content: m.content }))
+      })
+    });
+
+    if (!response.ok || !response.body) {
+      const errText = await response.text().catch(() => "");
+      throw new Error("HTTP " + response.status + " " + errText.slice(0, 200));
+    }
+
+    hideDots();
+    messages.push({ role: "assistant", content: "" });
+    render();
+
+    const reader = response.body.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "", fullText = "";
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const jsonStr = line.slice(5).trim();
+        if (!jsonStr) continue;
+        try {
+          const evt = JSON.parse(jsonStr);
+          if (evt.type === "content_block_delta" && evt.delta?.text) {
+            fullText += evt.delta.text;
+            messages[messages.length - 1].content = fullText;
+            render();
+          }
+        } catch (_) {}
+      }
+    }
+    persist();
+  } catch (e) {
+    hideDots();
+    showError("Не удалось получить ответ: " + e.message);
+  } finally {
+    sendBtn.disabled = !input.value.trim();
+  }
+}
+
+render();
+</script>
+</body>
+</html>
